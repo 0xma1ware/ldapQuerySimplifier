@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LDAP Query Tool</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>LDAP Query Tool</h1>
+
+        <section id="translator-section" class="card">
+            <h2>LDAP to Human Readable</h2>
+            <div class="input-group">
+                <label for="ldap-input">Enter LDAP Query:</label>
+                <textarea id="ldap-input" rows="4" placeholder="e.g., (&(name=Kaylie)(title=Manager))"></textarea>
+            </div>
+            <button id="translate-btn">Translate</button>
+            <div class="output-group">
+                <label for="human-output">Human Readable Output:</label>
+                <textarea id="human-output" rows="4" readonly></textarea>
+            </div>
+            <div id="translator-error" class="error-msg"></div>
+        </section>
+
+        <section id="builder-section" class="card">
+            <h2>Visual Query Builder</h2>
+            <div id="query-builder-root" class="query-builder-group">
+                <!-- Javascript will populate this root group -->
+            </div>
+
+            <div class="output-group">
+                <label for="builder-output">Generated LDAP Query:</label>
+                <textarea id="builder-output" rows="4" readonly></textarea>
+            </div>
+        </section>
+    </div>
+
+    <!-- Templates for builder -->
+    <template id="group-template">
+        <div class="group-container">
+            <div class="group-header">
+                <select class="group-condition">
+                    <option value="&">AND</option>
+                    <option value="|">OR</option>
+                    <option value="!">NOT</option>
+                </select>
+                <button class="add-rule-btn">Add Rule</button>
+                <button class="add-group-btn">Add Group</button>
+                <button class="remove-group-btn">Remove</button>
+            </div>
+            <div class="group-rules"></div>
+        </div>
+    </template>
+
+    <template id="rule-template">
+        <div class="rule-container">
+            <input type="text" class="rule-field" placeholder="Field (e.g. cn)">
+            <select class="rule-operator">
+                <option value="=">Equals</option>
+                <option value="~=">Approx (~=)</option>
+                <option value=">=">Greater/Equal (>=)</option>
+                <option value="<=">Less/Equal (<=)</option>
+                <option value="contains">Contains (*val*)</option>
+                <option value="starts">Starts With (val*)</option>
+                <option value="ends">Ends With (*val)</option>
+                <option value="present">Present (=*)</option>
+            </select>
+            <input type="text" class="rule-value" placeholder="Value">
+            <button class="remove-rule-btn">Remove</button>
+        </div>
+    </template>
+
+    <script src="app.js"></script>
+</body>
+</html>
