@@ -51,9 +51,6 @@ function parseLDAP(query) {
         if (operator === '!' && filters.length !== 1) {
             throw new Error(`NOT operator '!' must have exactly one child filter`);
         }
-        if ((operator === '&' || operator === '|') && filters.length === 0) {
-            throw new Error(`Operator '${operator}' must have at least one child filter`);
-        }
 
         return { type: 'group', operator, filters };
     }
@@ -140,6 +137,9 @@ function astToHumanReadable(ast) {
         if (ast.operator === '!') {
             return `NOT (${astToHumanReadable(ast.filters[0])})`;
         } else {
+            if (ast.filters.length === 0) {
+                return ast.operator === '&' ? 'TRUE' : 'FALSE';
+            }
             let joinWord = ast.operator === '&' ? ' AND ' : ' OR ';
             const childStrings = ast.filters.map(f => {
                 const str = astToHumanReadable(f);
