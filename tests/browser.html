@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>LDAP browser smoke tests</title>
+<style>body{font:14px/1.6 system-ui;margin:24px}iframe{width:100%;height:650px;border:1px solid #888}pre{white-space:pre-wrap}button{padding:10px}</style></head>
+<body>
+<h1>LDAP browser smoke tests</h1>
+<p>Serve the repository locally and open this page. Tests run in an isolated app frame, replacing its sample queries.</p>
+<button id="run">Run again</button><pre id="results" role="status">Loading…</pre>
+<iframe id="app" title="Application under test" src="../index.html"></iframe>
+<script>
+'use strict';
+const frame = document.getElementById('app');
+const results = document.getElementById('results');
+document.getElementById('run').onclick = () => { results.textContent = 'Loading…'; frame.src = '../index.html'; };
+frame.onload = () => {
+    try {
+        const script = frame.contentDocument.createElement('script');
+        script.src = 'tests/browser.js';
+        script.onload = async () => {
+            try {
+                const report = await frame.contentWindow.runBrowserTests();
+                results.textContent = `${report.passed} checks passed.\n\n${report.results.join('\n')}`;
+            } catch (error) { results.textContent = `FAILED: ${error.message}`; }
+        };
+        script.onerror = () => { results.textContent = 'Could not load browser.js.'; };
+        frame.contentDocument.head.append(script);
+    } catch (error) { results.textContent = 'Serve the repository over HTTP, for example: python3 -m http.server 8000\n' + error.message; }
+};
+</script>
+</body>
+</html>
