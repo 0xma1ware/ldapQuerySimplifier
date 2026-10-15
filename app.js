@@ -36,8 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateCommands() {
         $('scope-help').textContent = scopes[$('search-scope').value];
-        $('powershell-output').value = '';
-        $('ldapsearch-output').value = '';
+        const outputs = ['powershell-output', 'powerview-output', 'ldapsearch-output', 'netexec-output', 'windapsearch-output'];
+        outputs.forEach(id => { $(id).value = ''; });
         $('command-error').textContent = '';
         const filter = $($('command-source').value === 'builder' ? 'builder-output' : 'ldap-input').value;
         if (!filter.trim()) { $('command-error').textContent = 'A valid filter is needed to generate commands.'; return; }
@@ -48,7 +48,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 auth: $('auth').value, bindUser: $('bind-user').value.trim()
             });
             $('powershell-output').value = result.powershell;
+            $('powerview-output').value = result.powerview;
             $('ldapsearch-output').value = result.ldapsearch;
+            $('netexec-output').value = result.netexec;
+            $('windapsearch-output').value = result.windapsearch;
         } catch (error) { $('command-error').textContent = error.message; }
     }
     ['command-source', 'search-base', 'search-scope', 'server', 'properties', 'cmdlet', 'auth', 'bind-user'].forEach(id => {
@@ -244,6 +247,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     loadBuilder(ast);
                     $('ldap-input').value = filter;
                     $('cmdlet').value = preset.cmdlet; $('properties').value = preset.properties;
+                    // ADCS presets live in the Configuration partition; seed its base.
+                    if (preset.base) $('search-base').value = preset.base;
+                    if (preset.scope) $('search-scope').value = preset.scope;
                     inspect(); updateCommands(); status(`Loaded: ${preset.name}`);
                 } catch (error) { $('preset-error').textContent = error.message; }
             });
@@ -300,5 +306,57 @@ document.addEventListener('DOMContentLoaded', () => {
         try { $('escape-output').value = LDAP.escapeValue($('escape-input').value); }
         catch (error) { $('escape-error').textContent = error.message; }
     });
+
+    // AD CS ESC catalog (reference, filterable client-side).
+    const REF = (typeof window !== 'undefined' && window.ADCS_REFERENCE) || { ESC_CATALOG: [], RECIPES: [] };
+    const escTag = { yes: ['LDAP', 'tag-yes'], partial: ['partial', 'tag-partial'], no: ['host/CA', 'tag-no'] };
+    function renderEscCatalog() {
+        const q = $('esc-search').value.toLowerCase().trim();
+        const rows = REF.ESC_CATALOG.filter(e => !q || `${e.id} ${e.title} ${e.summary} ${e.enumeration} ${e.caveat}`.toLowerCase().includes(q));
+        const frag = document.createDocumentFragment();
+        for (const e of rows) {
+            const tr = document.createElement('tr');
+            const idCell = document.createElement('td'); idCell.textContent = e.id; tr.append(idCell);
+            const tech = document.createElement('td');
+            const t = document.createElement('div'); t.textContent = e.title; t.className = 'esc-title';
+            const s = document.createElement('div'); s.textContent = e.summary; s.className = 'hint';
+            tech.append(t, s); tr.append(tech);
+            const fc = document.createElement('td');
+            const [label, cls] = escTag[e.ldapFilterable] || ['?', ''];
+            const tag = document.createElement('span'); tag.className = 'tag ' + cls; tag.textContent = label; fc.append(tag); tr.append(fc);
+            const en = document.createElement('td');
+            const ed = document.createElement('div'); ed.textContent = e.enumeration;
+            const cd = document.createElement('div'); cd.className = 'hint'; cd.textContent = e.caveat || '';
+            en.append(ed, cd); tr.append(en);
+            frag.append(tr);
+        }
+        $('esc-catalog').replaceChildren(frag);
+    }
+    $('esc-search').addEventListener('input', renderEscCatalog); renderEscCatalog();
+
+    // Command recipes (fixed, grouped).
+    (function renderRecipes() {
+        const frag = document.createDocumentFragment();
+        let lastGroup = null;
+        for (const r of REF.RECIPES) {
+            if (r.group !== lastGroup) {
+                const h = document.createElement('h3'); h.textContent = r.group; h.className = 'recipe-group'; frag.append(h); lastGroup = r.group;
+            }
+            const card = document.createElement('article'); card.className = 'recipe';
+            const head = document.createElement('div'); head.className = 'recipe-head';
+            const name = document.createElement('strong'); name.textContent = r.tool; head.append(name);
+            const copy = document.createElement('button'); copy.className = 'copy-recipe'; copy.textContent = 'Copy'; copy.type = 'button';
+            copy.addEventListener('click', async () => {
+                try { await navigator.clipboard.writeText(r.example); status('Copied recipe.'); }
+                catch { status('Copy unavailable — select the text manually.'); }
+            });
+            head.append(copy);
+            const pre = document.createElement('pre'); pre.textContent = r.example;
+            const note = document.createElement('p'); note.className = 'hint'; note.textContent = r.note || '';
+            card.append(head, pre, note); frag.append(card);
+        }
+        $('recipe-list').replaceChildren(frag);
+    })();
+
     loadBuilder(LDAP.parseLDAP('(objectClass=*)'));
 });

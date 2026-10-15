@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const L = require('../ldap');
 const presets = require('../presets');
 const attributes = require('../attributes');
+const REF = require('../adcs-reference');
 const roundtrip = query => {
     const ast = L.parseLDAP(query);
     assert.deepEqual(L.parseLDAP(L.serialize(ast)), ast);
@@ -104,16 +105,23 @@ test('diagnostics capture relevant AD semantics', () => {
 });
 
 test('all presets validate, scope users correctly, and generate commands', () => {
-    assert.equal(presets.length, 26);
+    assert.equal(presets.length, 51);
     for (const preset of presets) {
         const filter = preset.dn ? preset.filter(L.escapeValue('CN=Alice (Ops),DC=example,DC=com')) : preset.filter;
         roundtrip(filter);
-        const output = L.commands(filter, { base: 'DC=example,DC=com', properties: preset.properties, cmdlet: preset.cmdlet });
+        const output = L.commands(filter, { base: preset.base || 'DC=example,DC=com', properties: preset.properties, cmdlet: preset.cmdlet });
         assert.ok(output.powershell.startsWith(preset.cmdlet));
-        if (preset.cmdlet === 'Get-ADUser') assert.ok(filter.includes('(objectCategory=person)(objectClass=user)'));
+        // User queries are scoped to users — by objectCategory/objectClass or by samAccountType.
+        if (preset.cmdlet === 'Get-ADUser') {
+            assert.ok(filter.includes('(objectCategory=person)(objectClass=user)') || filter.includes('(samAccountType=805306368)'));
+        }
     }
     const admin = presets.find(p => p.name.startsWith('Protected accounts'));
     assert.ok(L.parseLDAP(admin.filter).filters.some(f => f.attribute === 'adminCount'));
+    // Every filterable ESC preset must target the Configuration partition.
+    for (const p of presets.filter(x => x.category === 'AD CS object model' || (x.category === 'AD CS' && x.base))) {
+        assert.ok(p.base && p.base.startsWith('CN=Configuration'), p.name);
+    }
 });
 
 test('catalog is unique and valid, preserving the supplied table when available', () => {
@@ -150,6 +158,90 @@ test('invalid inputs never produce commands', () => {
         assert.throws(() => L.commands('(cn=x)', { base: 'DC=example', ...options }));
     }
     assert.throws(() => L.commands('(cn=a\nb)', { base: 'DC=example' }), /control/);
+});
+
+test('bitmask decoders cover groupType, encryption types, trust and AD CS flags', () => {
+    assert.match(L.astToHumanReadable(L.parseLDAP(`(groupType:${L.OIDS.and}:=2147483650)`)), /ACCOUNT_GROUP \(Global\).*SECURITY_ENABLED/);
+    assert.match(L.astToHumanReadable(L.parseLDAP(`(msDS-SupportedEncryptionTypes:${L.OIDS.and}:=24)`)), /AES128_CTS_HMAC_SHA1_96, AES256_CTS_HMAC_SHA1_96/);
+    assert.match(L.astToHumanReadable(L.parseLDAP(`(trustAttributes:${L.OIDS.and}:=8)`)), /FOREST_TRANSITIVE/);
+    assert.match(L.astToHumanReadable(L.parseLDAP(`(msPKI-Certificate-Name-Flag:${L.OIDS.and}:=1)`)), /ENROLLEE_SUPPLIES_SUBJECT/);
+    assert.match(L.astToHumanReadable(L.parseLDAP(`(msPKI-Enrollment-Flag:${L.OIDS.and}:=2)`)), /PEND_ALL_REQUESTS \(manager approval\)/);
+    // groupType is signed 32-bit; a negative decimal decodes via unsigned bits.
+    assert.match(L.astToHumanReadable(L.parseLDAP('(groupType:1.2.840.113556.1.4.803:=-2147483646)')), /SECURITY_ENABLED/);
+});
+
+test('EKU and certificate OIDs are named in explanations', () => {
+    assert.match(L.astToHumanReadable(L.parseLDAP('(pKIExtendedKeyUsage=1.3.6.1.5.5.7.3.2)')), /Client Authentication/);
+    assert.match(L.astToHumanReadable(L.parseLDAP('(pKIExtendedKeyUsage=2.5.29.37.0)')), /Any Purpose/);
+    // A plain attribute is not force-named.
+    assert.equal(L.astToHumanReadable(L.parseLDAP('(cn=1.3.6.1.5.5.7.3.2)')), 'cn equals "1.3.6.1.5.5.7.3.2"');
+});
+
+test('PowerView and NetExec commands generate for every preset', () => {
+    for (const preset of presets) {
+        const filter = preset.dn ? preset.filter(L.escapeValue('CN=Alice,DC=example,DC=com')) : preset.filter;
+        const out = L.commands(filter, { base: preset.base || 'DC=example,DC=com', properties: preset.properties, cmdlet: preset.cmdlet });
+        const pv = { 'Get-ADObject': 'Get-DomainObject', 'Get-ADUser': 'Get-DomainUser', 'Get-ADComputer': 'Get-DomainComputer', 'Get-ADGroup': 'Get-DomainGroup' }[preset.cmdlet];
+        assert.ok(out.powerview.startsWith(pv + ' -LDAPFilter'));
+        assert.ok(out.netexec.startsWith('nxc ldap '));
+    }
+});
+
+test('NetExec maps auth to -k vs placeholder password and space-separated attributes', () => {
+    const krb = L.commands('(cn=x)', { base: 'DC=htb,DC=local', server: '10.10.10.5', bindUser: 'jdoe', properties: 'sAMAccountName,memberOf' });
+    assert.ok(krb.netexec.includes("nxc ldap '10.10.10.5' -u 'jdoe' -k --base-dn 'DC=htb,DC=local' --query '(cn=x)' 'sAMAccountName memberOf'"));
+    const simple = L.commands('(cn=x)', { base: 'DC=htb,DC=local', server: '10.10.10.5', auth: 'simple', bindUser: 'jdoe' });
+    assert.ok(simple.netexec.includes("-u 'jdoe' -p '<password>'"));
+    // No real secret is ever emitted.
+    assert.ok(!/-p '(?!<password>')/.test(simple.netexec));
+});
+
+test('ESC presets and the full ESC1-ESC17 catalog are correct and complete', () => {
+    const esc1 = presets.find(p => p.name.includes('ESC1'));
+    assert.ok(esc1 && esc1.base.startsWith('CN=Configuration'));
+    assert.deepEqual(L.parseLDAP(L.serialize(L.parseLDAP(esc1.filter))), L.parseLDAP(esc1.filter));
+    // ESC1 name-flag must be the BIT_OR of ESS (0x1) and ESS_SAN (0x10000) = 65537,
+    // so SAN-only templates are not missed.
+    assert.match(esc1.filter, /msPKI-Certificate-Name-Flag:1\.2\.840\.113556\.1\.4\.804:=65537/);
+    assert.match(esc1.filter, /1\.3\.6\.1\.5\.5\.7\.3\.2/);                     // client-auth EKU
+    assert.match(esc1.filter, /msPKI-Certificate-Application-Policy=1\.3\.6\.1\.5\.5\.7\.3\.2/); // v2 EKU attr
+    // The ESS/SAN mask decodes to both name-flag bits.
+    assert.match(L.astToHumanReadable(L.parseLDAP(esc1.filter)), /ENROLLEE_SUPPLIES_SUBJECT, ENROLLEE_SUPPLIES_SUBJECT_ALT_NAME/);
+
+    assert.ok(presets.find(p => p.name.includes('Shadow credentials')).filter === '(msDS-KeyCredentialLink=*)');
+
+    // Each filterable ESC in the catalog that names a preset has one in presets.js.
+    const catalog = REF.ESC_CATALOG;
+    assert.equal(catalog.length, 17);
+    const ids = catalog.map(c => c.id);
+    for (let n = 1; n <= 17; n++) assert.ok(ids.includes('ESC' + n), 'catalog missing ESC' + n);
+    for (const id of ['ESC1', 'ESC2', 'ESC3', 'ESC9', 'ESC13', 'ESC15', 'ESC17']) {
+        assert.ok(presets.some(p => p.name.includes(id + ':') || p.name.includes(id + ' ') || p.name.includes('(' + id)), 'no preset for ' + id);
+    }
+    // Honesty: non-LDAP ESCs are labelled host/CA and have no filterable preset filter claiming to decide them.
+    for (const id of ['ESC6', 'ESC7', 'ESC8', 'ESC11', 'ESC12', 'ESC16']) {
+        assert.equal(catalog.find(c => c.id === id).ldapFilterable, 'no', id + ' should be no');
+    }
+    // Every ESC preset filter parses.
+    for (const p of presets.filter(x => x.name.startsWith('AD CS'))) roundtrip(p.dn ? p.filter('CN=x,DC=y') : p.filter);
+});
+
+test('windapsearch command and the SD-flags control generate correctly', () => {
+    const out = L.commands('(objectClass=pKICertificateTemplate)', { base: 'CN=Configuration,DC=htb,DC=local', server: '10.10.10.5', properties: 'name,nTSecurityDescriptor', cmdlet: 'Get-ADObject' });
+    assert.ok(out.windapsearch.startsWith('windapsearch.py --dc-ip '));
+    assert.ok(out.windapsearch.includes("-d 'htb.local'"));                        // domain derived from base DN
+    assert.ok(out.windapsearch.includes("--custom '(objectClass=pKICertificateTemplate)'"));
+    // nTSecurityDescriptor in the attribute set adds the owner+DACL SD-flags control.
+    assert.ok(out.ldapsearch.includes("-J '1.2.840.113556.1.4.801:true::MAMCAQU='"));
+    // Absent when the descriptor is not requested.
+    const out2 = L.commands('(cn=x)', { base: 'DC=htb,DC=local', properties: 'cn' });
+    assert.ok(!out2.ldapsearch.includes('1.2.840.113556.1.4.801'));
+});
+
+test('command recipes reference is present and complete', () => {
+    assert.ok(REF.RECIPES.length >= 10);
+    assert.ok(REF.RECIPES.some(r => r.tool.includes('certipy find')));
+    assert.ok(REF.RECIPES.every(r => r.example && r.tool && r.group));
 });
 
 test('authentication modes shape ldapsearch and PowerShell without leaking secrets', () => {

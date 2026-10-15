@@ -3407,4 +3407,36 @@ const AD_ATTRIBUTES = [
     "oid": "1.2.840.113556.1.2.2"
   }
 ];
+
+// Offensively-relevant AD attributes (delegation, trusts, AD CS, shadow
+// credentials, Kerberos) that are not in the base table. Merged with
+// case-insensitive de-duplication so the catalog stays unique.
+const OFFENSIVE_ATTRIBUTES = [
+  { name: "sIDHistory", cn: "SID-History", oid: "1.2.840.113556.1.4.609" },
+  { name: "msDS-KeyCredentialLink", cn: "ms-DS-Key-Credential-Link", oid: "1.2.840.113556.1.4.2328" },
+  { name: "msDS-AllowedToDelegateTo", cn: "ms-DS-Allowed-To-Delegate-To", oid: "1.2.840.113556.1.4.1787" },
+  { name: "msDS-AllowedToActOnBehalfOfOtherIdentity", cn: "ms-DS-Allowed-To-Act-On-Behalf-Of-Other-Identity", oid: "1.2.840.113556.1.4.2182" },
+  { name: "msDS-SupportedEncryptionTypes", cn: "ms-DS-Supported-Encryption-Types", oid: "1.2.840.113556.1.4.1963" },
+  { name: "msDS-GroupMSAMembership", cn: "ms-DS-GroupMSAMembership", oid: "1.2.840.113556.1.4.2070" },
+  { name: "trustAttributes", cn: "Trust-Attributes", oid: "1.2.840.113556.1.4.470" },
+  { name: "trustDirection", cn: "Trust-Direction", oid: "1.2.840.113556.1.4.469" },
+  { name: "trustPartner", cn: "Trust-Partner", oid: "1.2.840.113556.1.4.471" },
+  { name: "trustType", cn: "Trust-Type", oid: "1.2.840.113556.1.4.467" },
+  { name: "msPKI-Certificate-Name-Flag", cn: "ms-PKI-Certificate-Name-Flag", oid: "1.2.840.113556.1.4.1432" },
+  { name: "msPKI-Enrollment-Flag", cn: "ms-PKI-Enrollment-Flag", oid: "1.2.840.113556.1.4.1430" },
+  { name: "msPKI-RA-Signature", cn: "ms-PKI-RA-Signature", oid: "1.2.840.113556.1.4.1429" },
+  { name: "msPKI-Certificate-Application-Policy", cn: "ms-PKI-Certificate-Application-Policy", oid: "1.2.840.113556.1.4.1674" },
+  { name: "msPKI-Certificate-Policy", cn: "ms-PKI-Certificate-Policy", oid: "1.2.840.113556.1.4.1439" },
+  { name: "msPKI-Template-Schema-Version", cn: "ms-PKI-Template-Schema-Version", oid: "1.2.840.113556.1.4.1434" },
+  { name: "msPKI-Cert-Template-OID", cn: "ms-PKI-Cert-Template-OID", oid: "1.2.840.113556.1.4.1436" },
+  { name: "msDS-OIDToGroupLink", cn: "ms-DS-OIDToGroup-Link", oid: "1.2.840.113556.1.4.2051" },
+  { name: "msLAPS-Password", cn: "ms-LAPS-Password", oid: "1.2.840.113556.1.6.44.1.2" },
+  { name: "altSecurityIdentities", cn: "Alt-Security-Identities", oid: "1.2.840.113556.1.4.867" }
+];
+(function () {
+  const seen = new Set(AD_ATTRIBUTES.map(a => a.name.toLowerCase()));
+  for (const attr of OFFENSIVE_ATTRIBUTES) {
+    if (!seen.has(attr.name.toLowerCase())) { AD_ATTRIBUTES.push(attr); seen.add(attr.name.toLowerCase()); }
+  }
+})();
 if (typeof module !== "undefined" && module.exports) module.exports = AD_ATTRIBUTES;
