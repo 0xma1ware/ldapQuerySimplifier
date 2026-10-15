@@ -27,7 +27,14 @@ body {
 
 h1 {
     text-align: center;
+    margin-bottom: 5px;
+}
+
+.subtitle {
+    text-align: center;
+    margin-top: 0;
     margin-bottom: 30px;
+    color: #6c757d;
 }
 
 .card {
@@ -98,6 +105,89 @@ button {
     color: var(--danger-color);
     font-weight: bold;
     min-height: 20px;
+}
+
+/* Output header: label + copy button + options on one row */
+.output-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 5px;
+    flex-wrap: wrap;
+}
+
+.output-header label {
+    margin-bottom: 0;
+}
+
+.copy-btn {
+    background-color: #6c757d;
+    color: white;
+    padding: 4px 12px;
+    font-size: 13px;
+    margin-left: auto;
+}
+
+.copy-btn:hover {
+    background-color: #5a6268;
+}
+
+.copy-btn.copied {
+    background-color: #28a745;
+}
+
+.escape-label {
+    font-weight: normal;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    color: #495057;
+}
+
+.escape-label input {
+    margin: 0;
+}
+
+#preset-select {
+    cursor: pointer;
+}
+
+/* Quick reference */
+.reference-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+}
+
+.reference-grid h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+}
+
+.ref-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.ref-table td {
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: top;
+}
+
+.ref-table td:first-child {
+    white-space: nowrap;
+}
+
+.ref-table code {
+    background-color: #f1f3f5;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+    word-break: break-all;
 }
 
 /* Builder Styles */

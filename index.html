@@ -9,16 +9,28 @@
 <body>
     <div class="container">
         <h1>LDAP Query Tool</h1>
+        <p class="subtitle">Translate, build and understand RFC 4515 LDAP / Active Directory filters.</p>
 
         <section id="translator-section" class="card">
             <h2>LDAP to Human Readable</h2>
+
+            <div class="input-group">
+                <label for="preset-select">Load a known filter:</label>
+                <select id="preset-select">
+                    <option value="">— Choose a common query —</option>
+                </select>
+            </div>
+
             <div class="input-group">
                 <label for="ldap-input">Enter LDAP Query:</label>
-                <textarea id="ldap-input" rows="4" placeholder="e.g., (&(name=Kaylie)(title=Manager))"></textarea>
+                <textarea id="ldap-input" rows="4" placeholder="e.g., (&(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2))"></textarea>
             </div>
             <button id="translate-btn">Translate</button>
             <div class="output-group">
-                <label for="human-output">Human Readable Output:</label>
+                <div class="output-header">
+                    <label for="human-output">Human Readable Output:</label>
+                    <button id="copy-human-btn" class="copy-btn" type="button">Copy</button>
+                </div>
                 <textarea id="human-output" rows="4" readonly></textarea>
             </div>
             <div id="translator-error" class="error-msg"></div>
@@ -31,11 +43,72 @@
             </div>
 
             <div class="output-group">
-                <label for="builder-output">Generated LDAP Query:</label>
+                <div class="output-header">
+                    <label for="builder-output">Generated LDAP Query:</label>
+                    <label class="escape-label" title="Hex-escape *, (, ), \\ and NUL inside values (RFC 4515)">
+                        <input type="checkbox" id="escape-toggle" checked>
+                        Escape special characters
+                    </label>
+                    <button id="copy-builder-btn" class="copy-btn" type="button">Copy</button>
+                </div>
                 <textarea id="builder-output" rows="4" readonly></textarea>
             </div>
         </section>
+
+        <section id="reference-section" class="card">
+            <h2>Quick Reference</h2>
+            <div class="reference-grid">
+                <div>
+                    <h3>Operators</h3>
+                    <table class="ref-table">
+                        <tr><td><code>&amp;</code></td><td>AND</td></tr>
+                        <tr><td><code>|</code></td><td>OR</td></tr>
+                        <tr><td><code>!</code></td><td>NOT</td></tr>
+                    </table>
+                </div>
+                <div>
+                    <h3>Comparisons</h3>
+                    <table class="ref-table">
+                        <tr><td><code>=</code></td><td>Equal to</td></tr>
+                        <tr><td><code>~=</code></td><td>Approximately equal</td></tr>
+                        <tr><td><code>&gt;=</code></td><td>Greater than or equal</td></tr>
+                        <tr><td><code>&lt;=</code></td><td>Less than or equal</td></tr>
+                        <tr><td><code>=*</code></td><td>Present</td></tr>
+                        <tr><td><code>=*x*</code></td><td>Substring / wildcard</td></tr>
+                    </table>
+                </div>
+                <div>
+                    <h3>Matching Rule OIDs</h3>
+                    <table class="ref-table">
+                        <tr><td><code>1.2.840.113556.1.4.803</code></td><td>Bitwise AND</td></tr>
+                        <tr><td><code>1.2.840.113556.1.4.804</code></td><td>Bitwise OR</td></tr>
+                        <tr><td><code>1.2.840.113556.1.4.1941</code></td><td>In chain (recursive)</td></tr>
+                    </table>
+                </div>
+                <div>
+                    <h3>Escaped Characters</h3>
+                    <table class="ref-table">
+                        <tr><td><code>*</code></td><td><code>\2a</code></td></tr>
+                        <tr><td><code>(</code></td><td><code>\28</code></td></tr>
+                        <tr><td><code>)</code></td><td><code>\29</code></td></tr>
+                        <tr><td><code>\</code></td><td><code>\5c</code></td></tr>
+                        <tr><td>NUL</td><td><code>\00</code></td></tr>
+                    </table>
+                </div>
+                <div>
+                    <h3>Search Scope</h3>
+                    <table class="ref-table">
+                        <tr><td><code>Base</code> (0)</td><td>The SearchBase object only</td></tr>
+                        <tr><td><code>OneLevel</code> (1)</td><td>Immediate children only</td></tr>
+                        <tr><td><code>SubTree</code> (2)</td><td>SearchBase and all descendants</td></tr>
+                    </table>
+                </div>
+            </div>
+        </section>
     </div>
+
+    <!-- Shared autocomplete source for attribute fields -->
+    <datalist id="attribute-list"></datalist>
 
     <!-- Templates for builder -->
     <template id="group-template">
@@ -56,22 +129,26 @@
 
     <template id="rule-template">
         <div class="rule-container">
-            <input type="text" class="rule-field" placeholder="Field (e.g. cn)">
+            <input type="text" class="rule-field" placeholder="Field (e.g. cn)" list="attribute-list">
             <select class="rule-operator">
                 <option value="=">Equals</option>
                 <option value="~=">Approx (~=)</option>
-                <option value=">=">Greater/Equal (>=)</option>
-                <option value="<=">Less/Equal (<=)</option>
+                <option value=">=">Greater/Equal (&gt;=)</option>
+                <option value="<=">Less/Equal (&lt;=)</option>
                 <option value="contains">Contains (*val*)</option>
                 <option value="starts">Starts With (val*)</option>
                 <option value="ends">Ends With (*val)</option>
                 <option value="present">Present (=*)</option>
+                <option value="bit_and">Bitwise AND (:803:=)</option>
+                <option value="bit_or">Bitwise OR (:804:=)</option>
+                <option value="in_chain">In Chain (:1941:=)</option>
             </select>
             <input type="text" class="rule-value" placeholder="Value">
             <button class="remove-rule-btn">Remove</button>
         </div>
     </template>
 
+    <script src="ldap-data.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
