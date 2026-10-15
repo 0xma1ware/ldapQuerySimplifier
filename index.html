@@ -3,75 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LDAP Query Tool</title>
+    <meta name="description" content="An offline LDAP filter workbench for Active Directory enumeration.">
+    <title>LDAP Query Tool · AD Workbench</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <h1>LDAP Query Tool</h1>
-
+<main class="container">
+    <header class="page-header">
+        <div><p class="eyebrow">ACTIVE DIRECTORY / ENUMERATION</p><h1>LDAP Query Tool<span>AD workbench</span></h1><p>Understand a filter. Build a query. Take it to your terminal.</p></div>
+        <span class="badge">OFFLINE · NO BUILD</span>
+    </header>
+    <nav aria-label="Workbench sections"><a href="#translator-section">Translate</a><a href="#builder-section">Build</a><a href="#presets-section">Presets</a><a href="#commands-section">Commands</a><a href="#reference-section">Reference</a></nav>
+    <div class="workspace">
         <section id="translator-section" class="card">
-            <h2>LDAP to Human Readable</h2>
-            <div class="input-group">
-                <label for="ldap-input">Enter LDAP Query:</label>
-                <textarea id="ldap-input" rows="4" placeholder="e.g., (&(name=Kaylie)(title=Manager))"></textarea>
-            </div>
-            <button id="translate-btn">Translate</button>
-            <div class="output-group">
-                <label for="human-output">Human Readable Output:</label>
-                <textarea id="human-output" rows="4" readonly></textarea>
-            </div>
-            <div id="translator-error" class="error-msg"></div>
+            <div class="section-title"><h2><span>01</span> Inspect a filter</h2><span id="filter-status" class="badge">READY</span></div>
+            <label for="ldap-input">LDAP filter</label>
+            <textarea id="ldap-input" rows="6" spellcheck="false" placeholder="(&(objectCategory=person)(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2))"></textarea>
+            <div class="toolbar"><button id="translate-btn" class="primary">Translate</button><button id="format-btn">Format</button><button id="compact-btn">Compact</button><button id="import-btn">Load into builder</button><button data-copy="ldap-input">Copy filter</button></div>
+            <p class="hint">Ctrl / ⌘ + Enter to translate. Whitespace between filters is accepted; spaces inside values are preserved.</p>
+            <div id="translator-error" class="error-msg" role="alert"></div>
+            <label for="human-output">Plain-language explanation</label>
+            <textarea id="human-output" rows="5" readonly placeholder="Your filter, explained."></textarea>
+            <ul id="filter-notes" class="notes"></ul>
         </section>
-
-        <section id="builder-section" class="card">
-            <h2>Visual Query Builder</h2>
-            <div id="query-builder-root" class="query-builder-group">
-                <!-- Javascript will populate this root group -->
-            </div>
-
-            <div class="output-group">
-                <label for="builder-output">Generated LDAP Query:</label>
-                <textarea id="builder-output" rows="4" readonly></textarea>
-            </div>
+        <section id="presets-section" class="card">
+            <div class="section-title"><h2><span>02</span> Enumeration presets</h2></div>
+            <label for="preset-search">Find a query</label><input id="preset-search" type="search" placeholder="Accounts, delegation, membership…">
+            <label for="preset-dn">Target DN for membership queries</label><input id="preset-dn" type="text" placeholder="CN=Alice,OU=People,DC=example,DC=com" spellcheck="false">
+            <p class="hint">Loading a preset replaces the filter and builder, and sets return attributes and the AD cmdlet.</p>
+            <div id="preset-error" class="error-msg" role="alert"></div>
+            <div id="preset-list" class="preset-list"></div>
         </section>
     </div>
-
-    <!-- Templates for builder -->
-    <template id="group-template">
-        <div class="group-container">
-            <div class="group-header">
-                <select class="group-condition">
-                    <option value="&">AND</option>
-                    <option value="|">OR</option>
-                    <option value="!">NOT</option>
-                </select>
-                <button class="add-rule-btn">Add Rule</button>
-                <button class="add-group-btn">Add Group</button>
-                <button class="remove-group-btn">Remove</button>
-            </div>
-            <div class="group-rules"></div>
+    <section id="builder-section" class="card">
+        <div class="section-title"><h2><span>03</span> Visual query builder</h2><button id="reset-builder">Reset builder</button></div>
+        <p class="hint">Values are literal and escaped automatically. Use the wildcard operators or explicitly enable LDAP syntax for an already escaped assertion. NOT takes exactly one rule or group.</p>
+        <div id="query-builder-root"></div>
+        <div id="builder-error" class="error-msg" role="alert"></div>
+        <label for="builder-output">Generated LDAP filter</label><textarea id="builder-output" rows="3" readonly></textarea>
+        <div class="toolbar"><button data-copy="builder-output">Copy filter</button><button id="inspect-builder">Explain filter</button></div>
+        <details><summary>Compose a userAccountControl bit mask</summary>
+            <p class="hint">Select flags, then add an extensible rule to the root group. Decimal masks are required by AD.</p>
+            <div id="uac-flags" class="flag-grid"></div>
+            <div class="toolbar"><label for="uac-mode">Match</label><select id="uac-mode"><option value="and">All selected bits (803)</option><option value="or">Any selected bit (804)</option></select><output id="uac-mask">0</output><button id="add-uac">Add mask to builder</button></div>
+            <div id="uac-error" class="error-msg" role="alert"></div>
+        </details>
+    </section>
+    <section id="commands-section" class="card">
+        <div class="section-title"><h2><span>04</span> Search context &amp; commands</h2></div>
+        <div class="form-grid">
+            <div><label for="command-source">Filter source</label><select id="command-source"><option value="builder">Visual builder</option><option value="translator">Filter input</option></select></div>
+            <div><label for="search-base">Search base DN</label><input id="search-base" type="text" value="DC=example,DC=com" spellcheck="false"></div>
+            <div><label for="search-scope">Search scope</label><select id="search-scope"><option value="Base">Base (0)</option><option value="OneLevel">OneLevel (1)</option><option value="Subtree" selected>Subtree (2)</option></select></div>
+            <div><label for="server">Domain controller</label><input id="server" type="text" value="dc.example.com" spellcheck="false"></div>
+            <div><label for="cmdlet">PowerShell cmdlet</label><select id="cmdlet"><option>Get-ADObject</option><option>Get-ADUser</option><option>Get-ADComputer</option><option>Get-ADGroup</option></select></div>
+            <div><label for="auth">Authentication</label><select id="auth"><option value="gssapi">Kerberos (GSSAPI ticket)</option><option value="simple">Simple bind (user + password)</option></select></div>
+            <div><label for="bind-user">Bind identity (simple bind)</label><input id="bind-user" type="text" placeholder="DOMAIN\\user or user@domain" spellcheck="false"></div>
+            <div><label for="properties">Return attributes (comma separated)</label><input id="properties" type="text" value="sAMAccountName,distinguishedName" spellcheck="false"></div>
         </div>
-    </template>
-
-    <template id="rule-template">
-        <div class="rule-container">
-            <input type="text" class="rule-field" placeholder="Field (e.g. cn)">
-            <select class="rule-operator">
-                <option value="=">Equals</option>
-                <option value="~=">Approx (~=)</option>
-                <option value=">=">Greater/Equal (>=)</option>
-                <option value="<=">Less/Equal (<=)</option>
-                <option value="contains">Contains (*val*)</option>
-                <option value="starts">Starts With (val*)</option>
-                <option value="ends">Ends With (*val)</option>
-                <option value="present">Present (=*)</option>
-            </select>
-            <input type="text" class="rule-value" placeholder="Value">
-            <button class="remove-rule-btn">Remove</button>
-        </div>
-    </template>
-
-    <script src="app.js"></script>
+        <p id="scope-help" class="hint"></p>
+        <p class="hint">Replace the example domain and server (a hostname or IP). PowerShell requires the ActiveDirectory module. Kerberos uses LDAPS with your existing ticket; simple bind uses LDAP and prompts for the password with <code>-W</code> / <code>Get-Credential</code>, so no secret is placed on the command line. Results page in batches of 1,000. Commands are generated locally; this tool never connects to AD.</p>
+        <div id="command-error" class="error-msg" role="alert"></div>
+        <label for="powershell-output">PowerShell</label><textarea id="powershell-output" rows="3" readonly></textarea><button data-copy="powershell-output">Copy PowerShell</button>
+        <label for="ldapsearch-output">ldapsearch</label><textarea id="ldapsearch-output" rows="3" readonly></textarea><button data-copy="ldapsearch-output">Copy ldapsearch</button>
+    </section>
+    <section id="reference-section" class="card">
+        <div class="section-title"><h2><span>05</span> Field reference</h2></div>
+        <details open><summary>AD attribute catalog <span id="attribute-count"></span></summary>
+            <label for="attribute-search">Search LDAP name, CN, or attribute OID</label><input id="attribute-search" type="search" placeholder="e.g. memberOf, Account-Expires, 1.2.840…">
+            <p class="hint">Includes all attributes supplied in the prompt and common AD fields. This is a reference, not your server's schema. Custom attributes are accepted by the builder.</p>
+            <p id="attribute-results" class="hint" aria-live="polite"></p><div class="table-scroll"><table><thead><tr><th>LDAP name</th><th>CN</th><th>Attribute OID</th></tr></thead><tbody id="attribute-table"></tbody></table></div>
+        </details>
+        <details><summary>Filter syntax &amp; matching rules</summary>
+            <div class="table-scroll"><table><thead><tr><th>Intent</th><th>Syntax</th><th>Meaning</th></tr></thead><tbody>
+                <tr><td>AND / OR / NOT</td><td><code>(&amp;(a=1)(b=2)) / (|(a=1)(b=2)) / (!(a=1))</code></td><td>AND and OR require children. NOT requires exactly one.</td></tr>
+                <tr><td>Equality / inequality</td><td><code>(cn=Alice) / (!(cn=Alice))</code></td><td>Negate an equality filter for not equal.</td></tr>
+                <tr><td>Presence / absence</td><td><code>(description=*) / (!(description=*))</code></td><td>Whether an attribute has a value.</td></tr>
+                <tr><td>Comparison</td><td><code>(logonCount&gt;=10) / (logonCount&lt;=10) / (cn~=Alice)</code></td><td>Bare &gt; and &lt; are invalid. Approximate matching depends on server support.</td></tr>
+                <tr><td>Substrings</td><td><code>(cn=Al*) / (cn=*ice) / (cn=*lic*)</code></td><td>Starts with / ends with / contains. Escape a literal star as \2a.</td></tr>
+                <tr><td>Bitwise AND</td><td><code>1.2.840.113556.1.4.803</code></td><td>All mask bits must be set.</td></tr>
+                <tr><td>Bitwise OR</td><td><code>1.2.840.113556.1.4.804</code></td><td>At least one mask bit must be set.</td></tr>
+                <tr><td>Recursive DN match</td><td><code>1.2.840.113556.1.4.1941</code></td><td>Follows DN links such as member or memberOf.</td></tr>
+                <tr><td>Extensible match</td><td><code>(userAccountControl:1.2.840.113556.1.4.803:=2)</code></td><td>Optional :dn includes DN attributes. Other matching rules depend on the directory.</td></tr>
+            </tbody></table></div>
+        </details>
+        <details><summary>Escape a literal filter value</summary>
+            <p class="hint">Filter escaping: * → \2a, ( → \28, ) → \29, backslash → \5c, NUL → \00. DN escaping is a separate layer: enter an already formed DN as a literal value.</p>
+            <label for="escape-input">Literal value</label><input id="escape-input" type="text" placeholder="Alice (Operations)*" spellcheck="false">
+            <label for="escape-output">LDAP-escaped value</label><textarea id="escape-output" rows="2" readonly></textarea><button data-copy="escape-output">Copy escaped value</button><div id="escape-error" class="error-msg" role="alert"></div>
+        </details>
+        <p class="hint sources">References: <a href="https://www.rfc-editor.org/rfc/rfc4515">RFC 4515</a> · <a href="https://learn.microsoft.com/en-us/windows/win32/adsi/search-filter-syntax">Microsoft filter syntax</a> · <a href="https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/useraccountcontrol-manipulate-account-properties">UAC flags</a> · <a href="https://learn.microsoft.com/en-us/powershell/module/activedirectory/get-adobject">Get-ADObject</a></p>
+    </section>
+    <footer>Local processing · No external dependencies · No query history stored</footer>
+    <p id="copy-status" role="status" aria-live="polite"></p>
+</main>
+<datalist id="attribute-options"></datalist>
+<datalist id="matching-rules"><option value="1.2.840.113556.1.4.803">Bitwise AND</option><option value="1.2.840.113556.1.4.804">Bitwise OR</option><option value="1.2.840.113556.1.4.1941">Recursive DN match</option></datalist>
+<template id="group-template">
+    <div class="group-container"><div class="group-header">
+        <select class="group-condition" aria-label="Group logic"><option value="&">AND</option><option value="|">OR</option><option value="!">NOT</option></select>
+        <button class="add-rule-btn">+ Rule</button><button class="add-group-btn">+ Group</button><button class="remove-group-btn danger">Remove group</button>
+    </div><div class="group-rules"></div></div>
+</template>
+<template id="rule-template">
+    <div class="rule-container"><div class="rule-main">
+        <input type="text" class="rule-field" list="attribute-options" placeholder="Attribute" aria-label="Attribute" spellcheck="false">
+        <select class="rule-operator" aria-label="Rule operator">
+            <option value="=">Equals</option><option value="!=">Not equal</option><option value="~=">Approximate (~=)</option><option value=">=">Greater or equal (&gt;=)</option><option value="<=">Less or equal (&lt;=)</option><option value="contains">Contains</option><option value="starts">Starts with</option><option value="ends">Ends with</option><option value="present">Present</option><option value="absent">Not present</option><option value=":=">Extensible match (OID)</option>
+        </select>
+        <input type="text" class="rule-value" placeholder="Literal value" aria-label="Assertion value" spellcheck="false"><button class="remove-rule-btn danger" aria-label="Remove rule">Remove</button>
+    </div><div class="rule-options"><label class="check"><input type="checkbox" class="rule-raw">LDAP syntax (escapes / wildcards)</label>
+        <div class="extensible-options" hidden><input type="text" class="rule-oid" list="matching-rules" placeholder="Matching rule OID or name" aria-label="Matching rule" spellcheck="false"><label class="check"><input type="checkbox" class="rule-dn">Include DN attributes (:dn)</label></div>
+    </div></div>
+</template>
+<script src="ldap.js"></script><script src="attributes.js"></script><script src="presets.js"></script><script src="app.js"></script>
 </body>
 </html>
