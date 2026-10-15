@@ -16,6 +16,79 @@
         [2097152, 'USE_DES_KEY_ONLY'], [4194304, 'DONT_REQ_PREAUTH'],
         [16777216, 'TRUSTED_TO_AUTH_FOR_DELEGATION'], [67108864, 'PARTIAL_SECRETS_ACCOUNT']
     ];
+    // groupType is a signed 32-bit bitfield; the high bit marks security groups.
+    const GROUP_TYPE_FLAGS = [
+        [0x00000001, 'BUILTIN_LOCAL_GROUP'], [0x00000002, 'ACCOUNT_GROUP (Global)'],
+        [0x00000004, 'RESOURCE_GROUP (Domain Local)'], [0x00000008, 'UNIVERSAL_GROUP'],
+        [0x00000010, 'APP_BASIC_GROUP'], [0x00000020, 'APP_QUERY_GROUP'],
+        [0x80000000, 'SECURITY_ENABLED']
+    ];
+    // msDS-SupportedEncryptionTypes (MS-KILE 2.2.7).
+    const ENC_TYPE_FLAGS = [
+        [0x00000001, 'DES_CBC_CRC'], [0x00000002, 'DES_CBC_MD5'], [0x00000004, 'RC4_HMAC'],
+        [0x00000008, 'AES128_CTS_HMAC_SHA1_96'], [0x00000010, 'AES256_CTS_HMAC_SHA1_96'],
+        [0x00000020, 'FAST_SUPPORTED'], [0x00000040, 'COMPOUND_IDENTITY_SUPPORTED'],
+        [0x00000080, 'CLAIMS_SUPPORTED'], [0x00000100, 'RESOURCE_SID_COMPRESSION_DISABLED']
+    ];
+    // trustAttributes (MS-ADTS 6.1.6.7.9).
+    const TRUST_ATTR_FLAGS = [
+        [0x00000001, 'NON_TRANSITIVE'], [0x00000002, 'UPLEVEL_ONLY'],
+        [0x00000004, 'QUARANTINED_DOMAIN (SID filtering)'], [0x00000008, 'FOREST_TRANSITIVE'],
+        [0x00000010, 'CROSS_ORGANIZATION'], [0x00000020, 'WITHIN_FOREST'],
+        [0x00000040, 'TREAT_AS_EXTERNAL'], [0x00000080, 'USES_RC4_ENCRYPTION'],
+        [0x00000200, 'CROSS_ORGANIZATION_NO_TGT_DELEGATION'], [0x00000400, 'PIM_TRUST'],
+        [0x00000800, 'CROSS_ORGANIZATION_ENABLE_TGT_DELEGATION']
+    ];
+    // msPKI-Certificate-Name-Flag (MS-CRTD 2.27). The offensive-relevant bit is
+    // ENROLLEE_SUPPLIES_SUBJECT (1): the requester chooses the subject/SAN.
+    const CERT_NAME_FLAGS = [
+        [0x00000001, 'ENROLLEE_SUPPLIES_SUBJECT'],
+        [0x00000008, 'OLD_CERT_SUPPLIES_SUBJECT_AND_ALT_NAME'],
+        [0x00010000, 'ENROLLEE_SUPPLIES_SUBJECT_ALT_NAME'],
+        [0x00400000, 'SUBJECT_ALT_REQUIRE_DOMAIN_DNS'], [0x00800000, 'SUBJECT_ALT_REQUIRE_SPN'],
+        [0x01000000, 'SUBJECT_ALT_REQUIRE_DIRECTORY_GUID'], [0x02000000, 'SUBJECT_ALT_REQUIRE_UPN'],
+        [0x04000000, 'SUBJECT_ALT_REQUIRE_EMAIL'], [0x08000000, 'SUBJECT_ALT_REQUIRE_DNS'],
+        [0x10000000, 'SUBJECT_REQUIRE_DNS_AS_CN'], [0x20000000, 'SUBJECT_REQUIRE_EMAIL'],
+        [0x40000000, 'SUBJECT_REQUIRE_COMMON_NAME'], [0x80000000, 'SUBJECT_REQUIRE_DIRECTORY_PATH']
+    ];
+    // msPKI-Enrollment-Flag (MS-CRTD 2.26). PEND_ALL_REQUESTS (2) is manager
+    // approval; NO_SECURITY_EXTENSION (0x80000) relates to ESC9.
+    const ENROLLMENT_FLAGS = [
+        [0x00000001, 'INCLUDE_SYMMETRIC_ALGORITHMS'], [0x00000002, 'PEND_ALL_REQUESTS (manager approval)'],
+        [0x00000004, 'PUBLISH_TO_KRA_CONTAINER'], [0x00000008, 'PUBLISH_TO_DS'],
+        [0x00000010, 'AUTO_ENROLLMENT_CHECK_USER_DS_CERTIFICATE'], [0x00000020, 'AUTO_ENROLLMENT'],
+        [0x00000040, 'PREVIOUS_APPROVAL_VALIDATE_REENROLLMENT'], [0x00000100, 'USER_INTERACTION_REQUIRED'],
+        [0x00000400, 'REMOVE_INVALID_CERTIFICATE_FROM_PERSONAL_STORE'], [0x00000800, 'ALLOW_ENROLL_ON_BEHALF_OF'],
+        [0x00001000, 'ADD_OCSP_NOCHECK'], [0x00002000, 'ENABLE_KEY_REUSE_ON_NT_TOKEN_KEYSET_STORAGE_FULL'],
+        [0x00004000, 'NOREVOCATIONINFOINISSUEDCERTS'], [0x00008000, 'INCLUDE_BASIC_CONSTRAINTS_FOR_EE_CERTS'],
+        [0x00010000, 'ALLOW_PREVIOUS_APPROVAL_KEYBASEDRENEWAL_VALIDATE_REENROLLMENT'],
+        [0x00020000, 'ISSUANCE_POLICIES_FROM_REQUEST'], [0x00040000, 'SKIP_AUTO_RENEWAL'],
+        [0x00080000, 'NO_SECURITY_EXTENSION']
+    ];
+    // Attribute (lowercased) -> bitfield table, for decoding bitmask matches.
+    const FLAG_TABLES = {
+        useraccountcontrol: FLAGS,
+        'msds-user-account-control-computed': FLAGS,
+        grouptype: GROUP_TYPE_FLAGS,
+        'msds-supportedencryptiontypes': ENC_TYPE_FLAGS,
+        trustattributes: TRUST_ATTR_FLAGS,
+        'mspki-certificate-name-flag': CERT_NAME_FLAGS,
+        'mspki-enrollment-flag': ENROLLMENT_FLAGS
+    };
+    // Common Extended Key Usage / certificate OIDs, for readable explanations.
+    const EKU_OIDS = {
+        '1.3.6.1.5.5.7.3.1': 'Server Authentication',
+        '1.3.6.1.5.5.7.3.2': 'Client Authentication',
+        '1.3.6.1.5.5.7.3.3': 'Code Signing',
+        '1.3.6.1.5.5.7.3.4': 'Secure Email',
+        '1.3.6.1.5.5.7.3.8': 'Time Stamping',
+        '1.3.6.1.5.5.7.3.9': 'OCSP Signing',
+        '1.3.6.1.4.1.311.20.2.2': 'Smart Card Logon',
+        '1.3.6.1.5.2.3.4': 'PKINIT Client Authentication',
+        '1.3.6.1.4.1.311.20.2.1': 'Certificate Request Agent (Enrollment Agent)',
+        '2.5.29.37.0': 'Any Purpose'
+    };
+    const EKU_ATTRS = ['pkiextendedkeyusage', 'extendedkeyusage', 'mspki-certificate-application-policy'];
 
     function parseLDAP(query) {
         if (typeof query !== 'string') throw new Error('Filter must be text.');
@@ -118,10 +191,18 @@
     const display = value => JSON.stringify(decodeValue(value));
     function describeMask(attribute, value) {
         const text = decodeValue(value);
-        if (attribute.toLowerCase() !== 'useraccountcontrol' || !/^\d+$/.test(text)) return text;
-        const mask = BigInt(text);
-        const names = FLAGS.filter(([n]) => (mask & BigInt(n)) !== 0n).map(([, name]) => name);
+        const table = FLAG_TABLES[String(attribute).toLowerCase()];
+        if (!table || !/^-?\d+$/.test(text)) return text;
+        // groupType and similar are signed 32-bit; normalise to unsigned bits.
+        const mask = BigInt.asUintN(32, BigInt(text));
+        const names = table.filter(([n]) => (mask & BigInt(n)) !== 0n).map(([, name]) => name);
         return names.length ? `${text} (${names.join(', ')})` : text;
+    }
+    // Append a friendly EKU/OID name when the value is a recognised OID.
+    function describeEku(attribute, value) {
+        const text = decodeValue(value);
+        if (!EKU_ATTRS.includes(String(attribute).toLowerCase())) return display(value);
+        return EKU_OIDS[text] ? `${display(value)} (${EKU_OIDS[text]})` : display(value);
     }
     function astToHumanReadable(ast) {
         if (!ast) return '';
@@ -148,7 +229,8 @@
             if (stars === 1 && value.endsWith('*')) return `${field} starts with ${display(value.slice(0, -1))}`;
             if (stars) return `${field} matches substring pattern ${value.split('*').map(display).join(' then any text then ')}`;
         }
-        return `${field} ${{ '=': 'equals', '~=': 'approximately matches', '>=': 'is greater than or equal to', '<=': 'is less than or equal to' }[operator]} ${display(value)}`;
+        const shown = operator === '=' ? describeEku(attribute, value) : display(value);
+        return `${field} ${{ '=': 'equals', '~=': 'approximately matches', '>=': 'is greater than or equal to', '<=': 'is less than or equal to' }[operator]} ${shown}`;
     }
 
     function buildRule({ attribute, operator, value = '', matchingRule = '', dnAttributes = false, raw = false }) {
@@ -217,9 +299,26 @@
             ? ` -x${bindUser ? ' -D ' + shQuote(bindUser) + ' -W' : ''}`
             : ' -Y GSSAPI';
         const ldapsearch = `ldapsearch -LLL -H ${shQuote(uri)}${authFlags} -b ${shQuote(base)} -s ${scopeFlag} -E pr=1000/noprompt ${shQuote(compact)}${attrs.length ? ' ' + attrs.map(shQuote).join(' ') : ''}`;
-        return { powershell, ldapsearch };
+
+        // PowerView (SharpView): the red-team staple, no RSAT required. The
+        // Get-AD* cmdlet maps to the matching Get-Domain* function.
+        const pvVerb = { 'Get-ADObject': 'Get-DomainObject', 'Get-ADUser': 'Get-DomainUser', 'Get-ADComputer': 'Get-DomainComputer', 'Get-ADGroup': 'Get-DomainGroup' }[cmdlet];
+        const pvCred = auth === 'simple'
+            ? ` -Credential (Get-Credential${bindUser ? ' -UserName ' + psQuote(bindUser) : ''})`
+            : '';
+        const powerview = `${pvVerb} -LDAPFilter ${psQuote(compact)} -SearchBase ${psQuote(base)} -SearchScope ${scope}${server ? ' -Server ' + psQuote(server) : ''}${pvCred}${attrs.length ? ' -Properties ' + attrs.map(psQuote).join(',') : ''}`;
+
+        // NetExec (nxc ldap): --query takes the filter and a space-separated
+        // attribute list. Credentials are placeholders; -k uses a Kerberos
+        // ticket, and a simple bind leaves the password as a prompt-style token.
+        const nxcUser = bindUser || '<user>';
+        const nxcCreds = auth === 'simple' ? `-u ${shQuote(nxcUser)} -p '<password>'` : `-u ${shQuote(nxcUser)} -k`;
+        const nxcAttrs = attrs.filter(a => a !== '*').join(' ');
+        const netexec = `nxc ldap ${shQuote(host)} ${nxcCreds} --base-dn ${shQuote(base)} --query ${shQuote(compact)} ${shQuote(nxcAttrs)}`;
+
+        return { powershell, powerview, ldapsearch, netexec };
     }
-    const api = { OIDS, FLAGS, parseLDAP, serialize, escapeValue, decodeValue, astToHumanReadable, buildRule, diagnostics, commands };
+    const api = { OIDS, FLAGS, GROUP_TYPE_FLAGS, ENC_TYPE_FLAGS, TRUST_ATTR_FLAGS, CERT_NAME_FLAGS, ENROLLMENT_FLAGS, FLAG_TABLES, EKU_OIDS, parseLDAP, serialize, escapeValue, decodeValue, astToHumanReadable, buildRule, diagnostics, commands };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.LDAP = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

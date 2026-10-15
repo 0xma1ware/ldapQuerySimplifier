@@ -64,8 +64,11 @@
         <p id="scope-help" class="hint"></p>
         <p class="hint">Replace the example domain and server (a hostname or IP). PowerShell requires the ActiveDirectory module. Kerberos uses LDAPS with your existing ticket; simple bind uses LDAP and prompts for the password with <code>-W</code> / <code>Get-Credential</code>, so no secret is placed on the command line. Results page in batches of 1,000. Commands are generated locally; this tool never connects to AD.</p>
         <div id="command-error" class="error-msg" role="alert"></div>
-        <label for="powershell-output">PowerShell</label><textarea id="powershell-output" rows="3" readonly></textarea><button data-copy="powershell-output">Copy PowerShell</button>
+        <label for="powershell-output">PowerShell (ActiveDirectory module)</label><textarea id="powershell-output" rows="3" readonly></textarea><button data-copy="powershell-output">Copy PowerShell</button>
+        <label for="powerview-output">PowerView / SharpView</label><textarea id="powerview-output" rows="3" readonly></textarea><button data-copy="powerview-output">Copy PowerView</button>
         <label for="ldapsearch-output">ldapsearch</label><textarea id="ldapsearch-output" rows="3" readonly></textarea><button data-copy="ldapsearch-output">Copy ldapsearch</button>
+        <label for="netexec-output">NetExec (nxc ldap)</label><textarea id="netexec-output" rows="3" readonly></textarea><button data-copy="netexec-output">Copy NetExec</button>
+        <p class="hint">PowerView needs no RSAT and uses your current token (or <code>-Credential</code>). NetExec credentials are placeholders — <code>-k</code> uses a Kerberos ticket, and <code>&lt;password&gt;</code> marks where to supply the secret. The <code>--query</code> attributes are space-separated.</p>
     </section>
     <section id="reference-section" class="card">
         <div class="section-title"><h2><span>05</span> Field reference</h2></div>
@@ -91,6 +94,18 @@
             <p class="hint">Filter escaping: * → \2a, ( → \28, ) → \29, backslash → \5c, NUL → \00. DN escaping is a separate layer: enter an already formed DN as a literal value.</p>
             <label for="escape-input">Literal value</label><input id="escape-input" type="text" placeholder="Alice (Operations)*" spellcheck="false">
             <label for="escape-output">LDAP-escaped value</label><textarea id="escape-output" rows="2" readonly></textarea><button data-copy="escape-output">Copy escaped value</button><div id="escape-error" class="error-msg" role="alert"></div>
+        </details>
+        <details><summary>Decoded bitmask attributes &amp; matching rules</summary>
+            <p class="hint">These attributes are decoded into named flags when matched with a bitwise rule (<code>1.2.840.113556.1.4.803</code> / <code>804</code>). AD expects a decimal mask.</p>
+            <div class="table-scroll"><table><thead><tr><th>Attribute</th><th>Decoded as</th><th>Notable flags</th></tr></thead><tbody>
+                <tr><td>userAccountControl</td><td>UAC flags</td><td><code>2</code> ACCOUNTDISABLE · <code>32</code> PASSWD_NOTREQD · <code>524288</code> TRUSTED_FOR_DELEGATION · <code>4194304</code> DONT_REQ_PREAUTH</td></tr>
+                <tr><td>groupType</td><td>Group type</td><td><code>2</code> Global · <code>4</code> Domain Local · <code>8</code> Universal · <code>0x80000000</code> Security-enabled</td></tr>
+                <tr><td>msDS-SupportedEncryptionTypes</td><td>Kerberos etypes</td><td><code>4</code> RC4 · <code>8</code> AES128 · <code>16</code> AES256</td></tr>
+                <tr><td>trustAttributes</td><td>Trust flags</td><td><code>8</code> FOREST_TRANSITIVE · <code>4</code> QUARANTINED (SID filtering) · <code>64</code> TREAT_AS_EXTERNAL</td></tr>
+                <tr><td>msPKI-Certificate-Name-Flag</td><td>AD CS name flags</td><td><code>1</code> ENROLLEE_SUPPLIES_SUBJECT (ESC1 signal)</td></tr>
+                <tr><td>msPKI-Enrollment-Flag</td><td>AD CS enrollment flags</td><td><code>2</code> PEND_ALL_REQUESTS (manager approval) · <code>0x80000</code> NO_SECURITY_EXTENSION</td></tr>
+            </tbody></table></div>
+            <p class="hint">Common EKU OIDs are named in explanations: <code>1.3.6.1.5.5.7.3.2</code> Client Authentication · <code>1.3.6.1.4.1.311.20.2.2</code> Smart Card Logon · <code>2.5.29.37.0</code> Any Purpose · <code>1.3.6.1.5.2.3.4</code> PKINIT Client Authentication. AD CS objects live under <code>CN=Configuration,DC=…</code> — set that as the search base.</p>
         </details>
         <p class="hint sources">References: <a href="https://www.rfc-editor.org/rfc/rfc4515">RFC 4515</a> · <a href="https://learn.microsoft.com/en-us/windows/win32/adsi/search-filter-syntax">Microsoft filter syntax</a> · <a href="https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/useraccountcontrol-manipulate-account-properties">UAC flags</a> · <a href="https://learn.microsoft.com/en-us/powershell/module/activedirectory/get-adobject">Get-ADObject</a></p>
     </section>

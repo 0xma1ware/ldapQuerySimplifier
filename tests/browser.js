@@ -94,6 +94,22 @@ async function runBrowserTests() {
 
     load('(cn=' + LDAP.escapeValue('<img src=x onerror=alert(1)>') + ')');
     check(!document.querySelector('img') && $('human-output').value.includes('<img'), 'Filter explanations render untrusted strings as text');
+
+    // All four command outputs populate, and ADCS presets seed the config base.
+    input($('command-source'), 'translator', 'change');
+    input($('ldap-input'), '(objectCategory=computer)');
+    input($('server'), 'dc.example.com');
+    input($('cmdlet'), 'Get-ADComputer', 'change');
+    $('translate-btn').click();
+    check(Boolean($('powerview-output').value) && $('powerview-output').value.startsWith('Get-DomainComputer'), 'PowerView command generates for the current filter');
+    check($('netexec-output').value.startsWith('nxc ldap '), 'NetExec command generates for the current filter');
+    input($('auth'), 'simple', 'change');
+    check($('ldapsearch-output').value.includes('-x') && $('netexec-output').value.includes("-p '<password>'"), 'Simple bind flows through ldapsearch and NetExec');
+    input($('auth'), 'gssapi', 'change');
+    document.querySelector('[aria-label="Load AD CS: ESC1-style templates"]').click();
+    check($('search-base').value.startsWith('CN=Configuration'), 'ADCS preset seeds the Configuration search base');
+    check($('human-output').value.includes('ENROLLEE_SUPPLIES_SUBJECT'), 'ESC1 preset decodes the certificate name flag');
+
     document.querySelector('[aria-label="Load Disabled users"]').click();
     input($('search-scope'), 'Subtree', 'change');
     window.scrollTo(0, 0);

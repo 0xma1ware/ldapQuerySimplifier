@@ -36,8 +36,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateCommands() {
         $('scope-help').textContent = scopes[$('search-scope').value];
-        $('powershell-output').value = '';
-        $('ldapsearch-output').value = '';
+        const outputs = ['powershell-output', 'powerview-output', 'ldapsearch-output', 'netexec-output'];
+        outputs.forEach(id => { $(id).value = ''; });
         $('command-error').textContent = '';
         const filter = $($('command-source').value === 'builder' ? 'builder-output' : 'ldap-input').value;
         if (!filter.trim()) { $('command-error').textContent = 'A valid filter is needed to generate commands.'; return; }
@@ -48,7 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 auth: $('auth').value, bindUser: $('bind-user').value.trim()
             });
             $('powershell-output').value = result.powershell;
+            $('powerview-output').value = result.powerview;
             $('ldapsearch-output').value = result.ldapsearch;
+            $('netexec-output').value = result.netexec;
         } catch (error) { $('command-error').textContent = error.message; }
     }
     ['command-source', 'search-base', 'search-scope', 'server', 'properties', 'cmdlet', 'auth', 'bind-user'].forEach(id => {
@@ -244,6 +246,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     loadBuilder(ast);
                     $('ldap-input').value = filter;
                     $('cmdlet').value = preset.cmdlet; $('properties').value = preset.properties;
+                    // ADCS presets live in the Configuration partition; seed its base.
+                    if (preset.base) $('search-base').value = preset.base;
+                    if (preset.scope) $('search-scope').value = preset.scope;
                     inspect(); updateCommands(); status(`Loaded: ${preset.name}`);
                 } catch (error) { $('preset-error').textContent = error.message; }
             });

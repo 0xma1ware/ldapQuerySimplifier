@@ -104,7 +104,7 @@ test('diagnostics capture relevant AD semantics', () => {
 });
 
 test('all presets validate, scope users correctly, and generate commands', () => {
-    assert.equal(presets.length, 26);
+    assert.equal(presets.length, 37);
     for (const preset of presets) {
         const filter = preset.dn ? preset.filter(L.escapeValue('CN=Alice (Ops),DC=example,DC=com')) : preset.filter;
         roundtrip(filter);
@@ -150,6 +150,53 @@ test('invalid inputs never produce commands', () => {
         assert.throws(() => L.commands('(cn=x)', { base: 'DC=example', ...options }));
     }
     assert.throws(() => L.commands('(cn=a\nb)', { base: 'DC=example' }), /control/);
+});
+
+test('bitmask decoders cover groupType, encryption types, trust and AD CS flags', () => {
+    assert.match(L.astToHumanReadable(L.parseLDAP(`(groupType:${L.OIDS.and}:=2147483650)`)), /ACCOUNT_GROUP \(Global\).*SECURITY_ENABLED/);
+    assert.match(L.astToHumanReadable(L.parseLDAP(`(msDS-SupportedEncryptionTypes:${L.OIDS.and}:=24)`)), /AES128_CTS_HMAC_SHA1_96, AES256_CTS_HMAC_SHA1_96/);
+    assert.match(L.astToHumanReadable(L.parseLDAP(`(trustAttributes:${L.OIDS.and}:=8)`)), /FOREST_TRANSITIVE/);
+    assert.match(L.astToHumanReadable(L.parseLDAP(`(msPKI-Certificate-Name-Flag:${L.OIDS.and}:=1)`)), /ENROLLEE_SUPPLIES_SUBJECT/);
+    assert.match(L.astToHumanReadable(L.parseLDAP(`(msPKI-Enrollment-Flag:${L.OIDS.and}:=2)`)), /PEND_ALL_REQUESTS \(manager approval\)/);
+    // groupType is signed 32-bit; a negative decimal decodes via unsigned bits.
+    assert.match(L.astToHumanReadable(L.parseLDAP('(groupType:1.2.840.113556.1.4.803:=-2147483646)')), /SECURITY_ENABLED/);
+});
+
+test('EKU and certificate OIDs are named in explanations', () => {
+    assert.match(L.astToHumanReadable(L.parseLDAP('(pKIExtendedKeyUsage=1.3.6.1.5.5.7.3.2)')), /Client Authentication/);
+    assert.match(L.astToHumanReadable(L.parseLDAP('(pKIExtendedKeyUsage=2.5.29.37.0)')), /Any Purpose/);
+    // A plain attribute is not force-named.
+    assert.equal(L.astToHumanReadable(L.parseLDAP('(cn=1.3.6.1.5.5.7.3.2)')), 'cn equals "1.3.6.1.5.5.7.3.2"');
+});
+
+test('PowerView and NetExec commands generate for every preset', () => {
+    for (const preset of presets) {
+        const filter = preset.dn ? preset.filter(L.escapeValue('CN=Alice,DC=example,DC=com')) : preset.filter;
+        const out = L.commands(filter, { base: preset.base || 'DC=example,DC=com', properties: preset.properties, cmdlet: preset.cmdlet });
+        const pv = { 'Get-ADObject': 'Get-DomainObject', 'Get-ADUser': 'Get-DomainUser', 'Get-ADComputer': 'Get-DomainComputer', 'Get-ADGroup': 'Get-DomainGroup' }[preset.cmdlet];
+        assert.ok(out.powerview.startsWith(pv + ' -LDAPFilter'));
+        assert.ok(out.netexec.startsWith('nxc ldap '));
+    }
+});
+
+test('NetExec maps auth to -k vs placeholder password and space-separated attributes', () => {
+    const krb = L.commands('(cn=x)', { base: 'DC=htb,DC=local', server: '10.10.10.5', bindUser: 'jdoe', properties: 'sAMAccountName,memberOf' });
+    assert.ok(krb.netexec.includes("nxc ldap '10.10.10.5' -u 'jdoe' -k --base-dn 'DC=htb,DC=local' --query '(cn=x)' 'sAMAccountName memberOf'"));
+    const simple = L.commands('(cn=x)', { base: 'DC=htb,DC=local', server: '10.10.10.5', auth: 'simple', bindUser: 'jdoe' });
+    assert.ok(simple.netexec.includes("-u 'jdoe' -p '<password>'"));
+    // No real secret is ever emitted.
+    assert.ok(!/-p '(?!<password>')/.test(simple.netexec));
+});
+
+test('ADCS and primitive presets carry the right filters and config base', () => {
+    const esc1 = presets.find(p => p.name.includes('ESC1'));
+    assert.ok(esc1 && esc1.base.startsWith('CN=Configuration'));
+    const ast = L.parseLDAP(esc1.filter);
+    assert.deepEqual(L.parseLDAP(L.serialize(ast)), ast);
+    assert.match(esc1.filter, /msPKI-Certificate-Name-Flag:1\.2\.840\.113556\.1\.4\.803:=1/);
+    assert.match(esc1.filter, /1\.3\.6\.1\.5\.5\.7\.3\.2/); // client-auth EKU
+    assert.ok(presets.find(p => p.name.includes('Shadow credentials')).filter === '(msDS-KeyCredentialLink=*)');
+    for (const p of presets.filter(x => x.category === 'ADCS')) assert.ok(p.base && p.base.startsWith('CN=Configuration'));
 });
 
 test('authentication modes shape ldapsearch and PowerShell without leaking secrets', () => {
