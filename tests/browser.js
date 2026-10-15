@@ -103,12 +103,22 @@ async function runBrowserTests() {
     $('translate-btn').click();
     check(Boolean($('powerview-output').value) && $('powerview-output').value.startsWith('Get-DomainComputer'), 'PowerView command generates for the current filter');
     check($('netexec-output').value.startsWith('nxc ldap '), 'NetExec command generates for the current filter');
+    check($('windapsearch-output').value.startsWith('windapsearch.py'), 'windapsearch command generates for the current filter');
     input($('auth'), 'simple', 'change');
     check($('ldapsearch-output').value.includes('-x') && $('netexec-output').value.includes("-p '<password>'"), 'Simple bind flows through ldapsearch and NetExec');
     input($('auth'), 'gssapi', 'change');
-    document.querySelector('[aria-label="Load AD CS: ESC1-style templates"]').click();
+    document.querySelector('[aria-label="Load AD CS ESC1: enrollee-supplies-subject + client-auth"]').click();
     check($('search-base').value.startsWith('CN=Configuration'), 'ADCS preset seeds the Configuration search base');
     check($('human-output').value.includes('ENROLLEE_SUPPLIES_SUBJECT'), 'ESC1 preset decodes the certificate name flag');
+    check($('ldapsearch-output').value.includes("-J '1.2.840.113556.1.4.801"), 'nTSecurityDescriptor attribute adds the SD-flags control to ldapsearch');
+
+    // ESC catalog + recipes render.
+    check($('esc-catalog').children.length === 17, 'ESC catalog renders all 17 techniques');
+    input($('esc-search'), 'ekuwu');
+    check($('esc-catalog').children.length === 1 && $('esc-catalog').textContent.includes('ESC15'), 'ESC catalog search filters to a technique');
+    input($('esc-search'), '');
+    check($('recipe-list').querySelectorAll('.recipe').length >= 10, 'Command recipes render');
+    check($('recipe-list').textContent.includes('certipy find'), 'certipy find recipe is present');
 
     document.querySelector('[aria-label="Load Disabled users"]').click();
     input($('search-scope'), 'Subtree', 'change');

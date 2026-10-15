@@ -13,7 +13,7 @@
         <div><p class="eyebrow">ACTIVE DIRECTORY / ENUMERATION</p><h1>LDAP Query Tool<span>AD workbench</span></h1><p>Understand a filter. Build a query. Take it to your terminal.</p></div>
         <span class="badge">OFFLINE · NO BUILD</span>
     </header>
-    <nav aria-label="Workbench sections"><a href="#translator-section">Translate</a><a href="#builder-section">Build</a><a href="#presets-section">Presets</a><a href="#commands-section">Commands</a><a href="#reference-section">Reference</a></nav>
+    <nav aria-label="Workbench sections"><a href="#translator-section">Translate</a><a href="#builder-section">Build</a><a href="#presets-section">Presets</a><a href="#commands-section">Commands</a><a href="#adcs-section">ESC catalog</a><a href="#recipes-section">Recipes</a><a href="#reference-section">Reference</a></nav>
     <div class="workspace">
         <section id="translator-section" class="card">
             <div class="section-title"><h2><span>01</span> Inspect a filter</h2><span id="filter-status" class="badge">READY</span></div>
@@ -68,10 +68,22 @@
         <label for="powerview-output">PowerView / SharpView</label><textarea id="powerview-output" rows="3" readonly></textarea><button data-copy="powerview-output">Copy PowerView</button>
         <label for="ldapsearch-output">ldapsearch</label><textarea id="ldapsearch-output" rows="3" readonly></textarea><button data-copy="ldapsearch-output">Copy ldapsearch</button>
         <label for="netexec-output">NetExec (nxc ldap)</label><textarea id="netexec-output" rows="3" readonly></textarea><button data-copy="netexec-output">Copy NetExec</button>
-        <p class="hint">PowerView needs no RSAT and uses your current token (or <code>-Credential</code>). NetExec credentials are placeholders — <code>-k</code> uses a Kerberos ticket, and <code>&lt;password&gt;</code> marks where to supply the secret. The <code>--query</code> attributes are space-separated.</p>
+        <label for="windapsearch-output">windapsearch</label><textarea id="windapsearch-output" rows="2" readonly></textarea><button data-copy="windapsearch-output">Copy windapsearch</button>
+        <p class="hint">PowerView needs no RSAT and uses your current token (or <code>-Credential</code>). NetExec/windapsearch credentials are placeholders — <code>-k</code>/<code>--kerberos</code> uses a ticket, <code>&lt;password&gt;</code> marks the secret, and the domain is derived from the base DN. When the return attributes include <code>nTSecurityDescriptor</code>, the ldapsearch line adds the SD-flags control (owner+DACL) so a non-admin read is not blanked.</p>
+    </section>
+    <section id="adcs-section" class="card">
+        <div class="section-title"><h2><span>05</span> AD CS ESC catalog</h2><span class="badge">ESC1–ESC17</span></div>
+        <p class="hint">The full AD CS escalation family. <b>LDAP</b> = a preset's filter decides it; <b>partial</b> = the template/value half is filterable but enroll/ACL/registry conditions need Certipy; <b>host/CA</b> = not in LDAP (registry/RPC/relay). Load the AD CS presets above (Configuration partition) to triage the filterable halves; use <code>certipy find -vulnerable</code> for the rest.</p>
+        <label for="esc-search">Filter the catalog</label><input id="esc-search" type="search" placeholder="esc9, delegation, san, approval…">
+        <div class="table-scroll"><table><thead><tr><th>ESC</th><th>Technique</th><th>In&nbsp;LDAP?</th><th>Enumeration</th></tr></thead><tbody id="esc-catalog"></tbody></table></div>
+    </section>
+    <section id="recipes-section" class="card">
+        <div class="section-title"><h2><span>06</span> Enumeration command recipes</h2></div>
+        <p class="hint">Fixed tool invocations (they do not consume the builder filter). Placeholders: <code>&lt;dc-ip&gt;</code> <code>&lt;user&gt;</code> <code>&lt;password&gt;</code> <code>&lt;domain&gt;</code>. Authorised lab use only.</p>
+        <div id="recipe-list"></div>
     </section>
     <section id="reference-section" class="card">
-        <div class="section-title"><h2><span>05</span> Field reference</h2></div>
+        <div class="section-title"><h2><span>07</span> Field reference</h2></div>
         <details open><summary>AD attribute catalog <span id="attribute-count"></span></summary>
             <label for="attribute-search">Search LDAP name, CN, or attribute OID</label><input id="attribute-search" type="search" placeholder="e.g. memberOf, Account-Expires, 1.2.840…">
             <p class="hint">Includes all attributes supplied in the prompt and common AD fields. This is a reference, not your server's schema. Custom attributes are accepted by the builder.</p>
@@ -131,6 +143,6 @@
         <div class="extensible-options" hidden><input type="text" class="rule-oid" list="matching-rules" placeholder="Matching rule OID or name" aria-label="Matching rule" spellcheck="false"><label class="check"><input type="checkbox" class="rule-dn">Include DN attributes (:dn)</label></div>
     </div></div>
 </template>
-<script src="ldap.js"></script><script src="attributes.js"></script><script src="presets.js"></script><script src="app.js"></script>
+<script src="ldap.js"></script><script src="attributes.js"></script><script src="presets.js"></script><script src="adcs-reference.js"></script><script src="app.js"></script>
 </body>
 </html>

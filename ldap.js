@@ -80,6 +80,7 @@
         '1.3.6.1.5.5.7.3.1': 'Server Authentication',
         '1.3.6.1.5.5.7.3.2': 'Client Authentication',
         '1.3.6.1.5.5.7.3.3': 'Code Signing',
+        '1.3.6.1.4.1.311.10.3.4': 'Encrypting File System (EFS)',
         '1.3.6.1.5.5.7.3.4': 'Secure Email',
         '1.3.6.1.5.5.7.3.8': 'Time Stamping',
         '1.3.6.1.5.5.7.3.9': 'OCSP Signing',
@@ -284,6 +285,12 @@
         const compact = serialize(ast);
         const host = server || 'dc.example.com';
         const scopeFlag = { Base: 'base', OneLevel: 'one', Subtree: 'sub' }[scope];
+        // Derive a dotted domain from the DC= components of the search base.
+        const domain = (base.match(/DC=([^,]+)/gi) || []).map(s => s.slice(3)).join('.') || 'example.com';
+        // When nTSecurityDescriptor is requested, a non-admin ldapsearch must ask
+        // for DACL+Owner only (SD_FLAGS control, 0x5) or AD blanks the descriptor.
+        const wantsSd = attrs.some(a => a.toLowerCase() === 'ntsecuritydescriptor');
+        const sdControl = wantsSd ? " -J '1.2.840.113556.1.4.801:true::MAMCAQU='" : '';
 
         // PowerShell: GSSAPI uses the caller's Kerberos context; simple bind
         // prompts for credentials with Get-Credential (no secret on the line).
@@ -298,7 +305,7 @@
         const authFlags = auth === 'simple'
             ? ` -x${bindUser ? ' -D ' + shQuote(bindUser) + ' -W' : ''}`
             : ' -Y GSSAPI';
-        const ldapsearch = `ldapsearch -LLL -H ${shQuote(uri)}${authFlags} -b ${shQuote(base)} -s ${scopeFlag} -E pr=1000/noprompt ${shQuote(compact)}${attrs.length ? ' ' + attrs.map(shQuote).join(' ') : ''}`;
+        const ldapsearch = `ldapsearch -LLL -H ${shQuote(uri)}${authFlags}${sdControl} -b ${shQuote(base)} -s ${scopeFlag} -E pr=1000/noprompt ${shQuote(compact)}${attrs.length ? ' ' + attrs.map(shQuote).join(' ') : ''}`;
 
         // PowerView (SharpView): the red-team staple, no RSAT required. The
         // Get-AD* cmdlet maps to the matching Get-Domain* function.
@@ -316,7 +323,13 @@
         const nxcAttrs = attrs.filter(a => a !== '*').join(' ');
         const netexec = `nxc ldap ${shQuote(host)} ${nxcCreds} --base-dn ${shQuote(base)} --query ${shQuote(compact)} ${shQuote(nxcAttrs)}`;
 
-        return { powershell, powerview, ldapsearch, netexec };
+        // windapsearch: a thin LDAP wrapper; --custom takes a raw filter.
+        const waCreds = auth === 'simple'
+            ? `-u ${shQuote((bindUser || '<user>') + '@' + domain)} -p '<password>'`
+            : `-u ${shQuote((bindUser || '<user>') + '@' + domain)} --kerberos`;
+        const windapsearch = `windapsearch.py --dc-ip ${shQuote(host)} -d ${shQuote(domain)} ${waCreds} --custom ${shQuote(compact)}${attrs.length ? ' --attrs ' + shQuote(attrs.join(',')) : ''}`;
+
+        return { powershell, powerview, ldapsearch, netexec, windapsearch };
     }
     const api = { OIDS, FLAGS, GROUP_TYPE_FLAGS, ENC_TYPE_FLAGS, TRUST_ATTR_FLAGS, CERT_NAME_FLAGS, ENROLLMENT_FLAGS, FLAG_TABLES, EKU_OIDS, parseLDAP, serialize, escapeValue, decodeValue, astToHumanReadable, buildRule, diagnostics, commands };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;

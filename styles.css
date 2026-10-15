@@ -71,6 +71,20 @@ th { position: sticky; top: 0; background: #253240; color: var(--muted); font-we
 td:first-child { color: var(--accent); }
 code { font-family: ui-monospace, monospace; }
 .sources { margin-top: 24px; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font: 11px/1.4 monospace; border: 1px solid var(--line); white-space: nowrap; }
+.tag-yes { color: var(--accent); border-color: #3c7; }
+.tag-partial { color: #e6c782; border-color: #7a6a3a; }
+.tag-no { color: var(--muted); }
+.esc-title { font-weight: 600; margin-bottom: 2px; }
+#esc-catalog td { vertical-align: top; }
+#esc-catalog td:first-child { color: var(--accent); font-family: monospace; white-space: nowrap; }
+.recipe-group { margin: 20px 0 6px; font-size: 13px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+.recipe { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; margin: 8px 0; background: var(--input); }
+.recipe-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.recipe-head strong { font-size: 13px; }
+.copy-recipe { padding: 4px 10px; font-size: 12px; }
+.recipe pre { margin: 8px 0 6px; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; overflow-x: auto; font: 12px/1.5 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.recipe p { margin: 0; }
 #copy-status:not(:empty) { position: fixed; bottom: 20px; right: 20px; max-width: 90vw; padding: 12px 20px; border: 1px solid var(--accent); background: var(--card); border-radius: 6px; box-shadow: 0 5px 25px #0008; }
 footer { text-align: center; color: var(--muted); font-size: 12px; padding: 12px; }
 @media (max-width: 1050px) { .workspace { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr 1fr; } }

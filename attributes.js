@@ -3424,7 +3424,14 @@ const OFFENSIVE_ATTRIBUTES = [
   { name: "trustType", cn: "Trust-Type", oid: "1.2.840.113556.1.4.467" },
   { name: "msPKI-Certificate-Name-Flag", cn: "ms-PKI-Certificate-Name-Flag", oid: "1.2.840.113556.1.4.1432" },
   { name: "msPKI-Enrollment-Flag", cn: "ms-PKI-Enrollment-Flag", oid: "1.2.840.113556.1.4.1430" },
-  { name: "msPKI-RA-Signature", cn: "ms-PKI-RA-Signature", oid: "1.2.840.113556.1.4.1429" }
+  { name: "msPKI-RA-Signature", cn: "ms-PKI-RA-Signature", oid: "1.2.840.113556.1.4.1429" },
+  { name: "msPKI-Certificate-Application-Policy", cn: "ms-PKI-Certificate-Application-Policy", oid: "1.2.840.113556.1.4.1674" },
+  { name: "msPKI-Certificate-Policy", cn: "ms-PKI-Certificate-Policy", oid: "1.2.840.113556.1.4.1439" },
+  { name: "msPKI-Template-Schema-Version", cn: "ms-PKI-Template-Schema-Version", oid: "1.2.840.113556.1.4.1434" },
+  { name: "msPKI-Cert-Template-OID", cn: "ms-PKI-Cert-Template-OID", oid: "1.2.840.113556.1.4.1436" },
+  { name: "msDS-OIDToGroupLink", cn: "ms-DS-OIDToGroup-Link", oid: "1.2.840.113556.1.4.2051" },
+  { name: "msLAPS-Password", cn: "ms-LAPS-Password", oid: "1.2.840.113556.1.6.44.1.2" },
+  { name: "altSecurityIdentities", cn: "Alt-Security-Identities", oid: "1.2.840.113556.1.4.867" }
 ];
 (function () {
   const seen = new Set(AD_ATTRIBUTES.map(a => a.name.toLowerCase()));
